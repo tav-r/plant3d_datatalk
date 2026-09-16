@@ -1,0 +1,84 @@
+name: Build slides
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - '**.tex'
+      - '.github/workflows/build-slides.yml'
+  pull_request:
+    paths:
+      - '**.tex'
+      - '.github/workflows/build-slides.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slides-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compile plant3d.tex
+        uses: xu-cheng/latex-action@v4
+        with:
+          root_file: plant3d.tex
+          # latexmk decides how often to rerun pdflatex
+          args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
+
+      # The theme is tight on vertical space. An overfull vbox means a slide is
+      # silently running off the bottom, which pdflatex does not treat as an error.
+      - name: Check for content running off the slide
+        if: always()
+        run: |
+          if [ ! -f plant3d.log ]; then
+            echo "no plant3d.log, nothing to check"
+            exit 0
+          fi
+          if grep -q 'Overfull \\vbox' plant3d.log; then
+            echo "### Slides with content running off the bottom" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep 'Overfull \\vbox' plant3d.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep 'Overfull \\vbox' plant3d.log | while read -r line; do
+              echo "::warning file=plant3d.tex::$line"
+            done
+          else
+            echo "no overfull vboxes" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: plant3d-slides
+          path: plant3d.pdf
+          if-no-files-found: error
+          retention-days: 90
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: plant3d-slides
+
+      - name: Attach PDF to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" plant3d.pdf \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Slides built from ${GITHUB_SHA:0:7}." \
+          || gh release upload "$GITHUB_REF_NAME" plant3d.pdf --clobber
