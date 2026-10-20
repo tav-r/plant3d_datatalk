@@ -246,6 +246,54 @@
 
 \section{Programmatic access to UBELIX}
 
+% --------------------------------------------------------------- 16
+\begin{frame}{The video data flow}
+  \begin{itemize}\setlength\itemsep{0.4em}
+    \item Video data
+      \begin{enumerate}
+        \item has to be accessible from within UBELIX
+        \item should stay available after it has been processed
+        \item should not live on the web server
+      \end{enumerate}
+    \item We therefore use the university's \hi{Research Storage (RS)} to store the
+      videos --- the RS is accessible from UBELIX
+  \end{itemize}
+  \vspace{1.0em}
+  \begin{center}
+  \resizebox{0.94\textwidth}{!}{%
+  \begin{tikzpicture}[
+      font=\small,
+      box/.style={draw=ubMuted,fill=ubSurface,text=ubText,rounded corners=2pt,
+                  minimum height=20mm,minimum width=28mm,align=center,inner sep=3pt},
+      ext/.style={box,draw=ubBlue,fill=ubAnthrazit},
+      vid/.style={-{Stealth[length=2.2mm]},draw=ubBlue,thick},
+      spl/.style={-{Stealth[length=2.2mm]},draw=ubRed,thick},
+      lbl/.style={fill=ubBg,text=ubMuted,font=\scriptsize,inner sep=1.5pt}
+    ]
+    \node[box] (browser) at ( 0,0) {Browser};
+    \node[box] (server)  at ( 5,0) {Web Server};
+    \node[ext] (storage) at (10,0) {Research\\storage};
+    \node[ext] (ubelix)  at (15,0) {Ubelix};
+
+    % browser <-> server
+    \draw[vid] ([yshift= 5mm]browser.east) -- node[lbl]{video}   ([yshift= 5mm]server.west);
+    \draw[vid] ([yshift=-2mm]server.west)  -- node[lbl]{video}   ([yshift=-2mm]browser.east);
+    \draw[spl] ([yshift=-7mm]server.west)  -- node[lbl]{3dSplat} ([yshift=-7mm]browser.east);
+
+    % server <-> research storage
+    \draw[vid] ([yshift= 5mm]server.east)  -- node[lbl]{video}   ([yshift= 5mm]storage.west);
+    \draw[vid] ([yshift=-2mm]storage.west) -- node[lbl]{video}   ([yshift=-2mm]server.east);
+    \draw[spl] ([yshift=-7mm]storage.west) -- node[lbl]{3dSplat} ([yshift=-7mm]server.east);
+
+    % research storage <-> Ubelix
+    \draw[vid] ([yshift= 5mm]storage.east) -- node[lbl]{video}   ([yshift= 5mm]ubelix.west);
+    \draw[spl] ([yshift=-2mm]ubelix.west)  -- node[lbl]{3dSplat} ([yshift=-2mm]storage.east);
+  \end{tikzpicture}}
+  \end{center}
+\end{frame}
+
+
+
 % --------------------------------------------------------------- 13
 \begin{frame}{UBELIX has no side door}
   \begin{itemize}\setlength\itemsep{0.8em}
@@ -256,7 +304,7 @@
   \end{itemize}
   \vspace{1.2em}
   \begin{notebox}
-    We asked around, nobody had done it from an application.
+    Nobody we asked had launched UBELIX jobs from an application.
   \end{notebox}
 \end{frame}
 
@@ -330,13 +378,25 @@
   {\small\color{ubMuted}Four containers on one host. Only the proxy has a port open.}
 \end{frame}
 
+
+% --------------------------------------------------------------- 17
+\begin{frame}{The script for the UBELIX job}
+  \begin{itemize}\setlength\itemsep{0.8em}
+    \item The script on UBELIX that turns a video into a 3D splat is written and maintained by the project team
+    \item Our responsability is to place the video data where the script expects it
+    \item When the script changes, we (ideally) don't have to change anything
+  \end{itemize}
+  \vspace{1.2em}
+\end{frame}
+
 % --------------------------------------------------------------- 14
-\begin{frame}{What we take away}
+\begin{frame}{Our takeaways}
   \begin{enumerate}\setlength\itemsep{1.0em}
-    \item Ask what the university already runs. GPUStack has LLMs, Speech-to-Text models and Embedding models.
-    \item Even though UBELIX doesn't have a web API, service account plus \key{--json} gets far.
+    \item Check what the university already runs. In our case: LLMs on GPUStack, Speech-to-Text models and Embedding models.
+    \item Even though UBELIX doesn't have a web API, service account plus \key{--json} gets you far.
   \end{enumerate}
 \end{frame}
+
 
 % --------------------------------------------------------------- 15
 \begin{frame}[plain]
@@ -348,57 +408,6 @@
     {\color{ubMuted}David Herrmann \quad\textbar\quad Sebastian Flick}
   \end{center}
   \vfill
-\end{frame}
-
-\section{Video processing}
-
-% --------------------------------------------------------------- 16
-\begin{frame}{flow of video data}
-  \begin{center}
-  \resizebox{0.94\textwidth}{!}{%
-  \begin{tikzpicture}[
-      font=\small,
-      box/.style={draw=ubMuted,fill=ubSurface,text=ubText,rounded corners=2pt,
-                  minimum height=20mm,minimum width=28mm,align=center,inner sep=3pt},
-      ext/.style={box,draw=ubBlue,fill=ubAnthrazit},
-      vid/.style={-{Stealth[length=2.2mm]},draw=ubBlue,thick},
-      spl/.style={-{Stealth[length=2.2mm]},draw=ubRed,thick},
-      lbl/.style={fill=ubBg,text=ubMuted,font=\scriptsize,inner sep=1.5pt}
-    ]
-    \node[box] (browser) at ( 0,0) {Browser};
-    \node[box] (server)  at ( 5,0) {Server};
-    \node[ext] (storage) at (10,0) {Research\\storage};
-    \node[ext] (ubelix)  at (15,0) {Ubelix};
-
-    % browser <-> server
-    \draw[vid] ([yshift= 5mm]browser.east) -- node[lbl]{video}   ([yshift= 5mm]server.west);
-    \draw[vid] ([yshift=-2mm]server.west)  -- node[lbl]{video}   ([yshift=-2mm]browser.east);
-    \draw[spl] ([yshift=-7mm]server.west)  -- node[lbl]{3dSplat} ([yshift=-7mm]browser.east);
-
-    % server <-> research storage
-    \draw[vid] ([yshift= 5mm]server.east)  -- node[lbl]{video}   ([yshift= 5mm]storage.west);
-    \draw[vid] ([yshift=-2mm]storage.west) -- node[lbl]{video}   ([yshift=-2mm]server.east);
-    \draw[spl] ([yshift=-7mm]storage.west) -- node[lbl]{3dSplat} ([yshift=-7mm]server.east);
-
-    % research storage <-> Ubelix
-    \draw[vid] ([yshift= 5mm]storage.east) -- node[lbl]{video}   ([yshift= 5mm]ubelix.west);
-    \draw[spl] ([yshift=-2mm]ubelix.west)  -- node[lbl]{3dSplat} ([yshift=-2mm]storage.east);
-  \end{tikzpicture}}
-  \end{center}
-\end{frame}
-
-% --------------------------------------------------------------- 17
-\begin{frame}{Project team owns the splat script}
-  \begin{itemize}\setlength\itemsep{0.8em}
-    \item The script on UBELIX that turns a video into a 3D splat is written and maintained by the project team
-    \item They decide what runs, we only submit the job
-    \item Our interface stays the same: video in, 3D splat out
-    \item When the script changes, we don't have to change anything
-  \end{itemize}
-  \vspace{1.2em}
-  \begin{notebox}
-    The video and the splat are the contract. Everything in between is theirs.
-  \end{notebox}
 \end{frame}
 
 \end{document}
